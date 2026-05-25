@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FastFlow">
+<title>FastFlow — Mapa Biológico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b18;
+    --surface: #0d1425;
+    --surface2: #131929;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8eaf0;
+    --muted: #5a6380;
+    --accent: #4fc3f7;
+    --phase0: #7c83fd;
+    --phase1: #f9a825;
+    --phase2: #ff7043;
+    --phase3: #66bb6a;
+    --phase4: #26c6da;
+    --glow: 0 0 40px rgba(79,195,247,0.15);
+    --r: 20px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; min-height: 100dvh; overflow-x: hidden;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── SPLASH ── */
+  #splash {
+    position: fixed; inset: 0; z-index: 999;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    transition: opacity .6s ease;
+  }
+  #splash .logo-big { font-family: 'Syne', sans-serif; font-size: 42px; font-weight: 800; letter-spacing: -1px; }
+  #splash .logo-big span { color: var(--accent); }
+  #splash p { color: var(--muted); font-size: 14px; letter-spacing: .5px; }
+  #splash .pulse-ring {
+    width: 80px; height: 80px; border-radius: 50%;
+    border: 2px solid var(--accent);
+    animation: pulseRing 1.4s ease-out infinite;
+    margin-bottom: 8px;
+  }
+  @keyframes pulseRing { 0%{transform:scale(.8);opacity:1} 100%{transform:scale(1.6);opacity:0} }
+
+  /* ── APP WRAPPER ── */
+  #app { display: none; flex-direction: column; min-height: 100dvh; }
+  #app.visible { display: flex; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 16px 20px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(7,11,24,0.92);
+    backdrop-filter: blur(20px);
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; transition: all .2s;
+    color: var(--text);
+  }
+  .icon-btn:active { transform: scale(.92); }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    background: rgba(7,11,24,0.96);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex; padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    cursor: pointer; padding: 6px 0;
+    font-size: 10px; color: var(--muted);
+    letter-spacing: .4px; text-transform: uppercase;
+    font-weight: 500; transition: color .2s;
+  }
+  .nav-item .ni { font-size: 22px; }
+  .nav-item.active { color: var(--accent); }
+
+  /* ── SCROLL AREA ── */
+  .scroll-area {
+    flex: 1; overflow-y: auto; padding-bottom: 90px;
+    scroll-behavior: smooth;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; padding: 20px; }
+  .screen.active { display: block; }
+
+  /* ── TIMER SCREEN ── */
+  .phase-banner {
+    border-radius: var(--r); padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px;
+    position: relative; overflow: hidden;
+    animation: fadeSlide .4s ease;
+  }
+  @keyframes fadeSlide { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .phase-banner::before {
+    content: ''; position: absolute; inset: 0;
+    background: inherit; filter: blur(30px); opacity: .3; z-index: 0;
+  }
+  .phase-banner > * { position: relative; z-index: 1; }
+  .phase-icon { font-size: 32px; }
+  .phase-info h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
+  .phase-info p { font-size: 12px; opacity: .8; margin-top: 2px; line-height: 1.4; }
+
+  /* RING */
+  .ring-wrap {
+    display: flex; flex-direction: column;
+    align-items: center; margin: 8px 0 24px;
+    gap: 16px;
+  }
+  .ring-container {
+    position: relative; width: 220px; height: 220px;
+  }
+  .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: var(--surface2); stroke-width: 12; }
+  .ring-fill {
+    fill: none; stroke-width: 12;
+    stroke-linecap: round;
+    stroke-dasharray: 628;
+    stroke-dashoffset: 628;
+    transition: stroke-dashoffset .6s ease, stroke .6s ease;
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+  .ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 2px;
+  }
+  .timer-display {
+    font-family: 'Syne', sans-serif;
+    font-size: 42px; font-weight: 800;
+    letter-spacing: -2px; line-height: 1;
+  }
+  .timer-label { font-size: 11px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; }
+  .timer-pct { font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 2px; }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 14px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    align-items: center; text-align: center;
+  }
+  .stat-card .sv { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
+  .stat-card .sl { font-size: 10px; color: var(--muted); letter-spacing: .4px; text-transform: uppercase; }
+
+  /* CTAs */
+  .cta-row { display: flex; gap: 12px; margin-bottom: 20px; }
+  .btn-primary {
+    flex: 1; padding: 16px;
+    border-radius: 16px; border: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+    letter-spacing: .2px;
+  }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-start { background: linear-gradient(135deg, #4fc3f7, #0288d1); color: #fff; box-shadow: 0 4px 20px rgba(79,195,247,.3); }
+  .btn-stop { background: linear-gradient(135deg, #ef5350, #b71c1c); color: #fff; box-shadow: 0 4px 20px rgba(239,83,80,.3); }
+  .btn-ghost {
+    padding: 16px 18px; border-radius: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-ghost:active { transform: scale(.97); }
+
+  /* TIMELINE */
+  .section-title {
+    font-family: 'Syne', sans-serif; font-size: 13px;
+    font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .tl-item {
+    display: flex; gap: 14px; align-items: stretch;
+    position: relative;
+  }
+  .tl-line {
+    display: flex; flex-direction: column;
+    align-items: center; width: 32px; flex-shrink: 0;
+  }
+  .tl-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid; flex-shrink: 0; z-index: 1;
+    transition: all .3s;
+  }
+  .tl-connector {
+    flex: 1; width: 2px;
+    background: var(--border); margin: 2px 0;
+  }
+  .tl-item:last-child .tl-connector { display: none; }
+  .tl-content {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px;
+    margin-bottom: 8px; flex: 1;
+    transition: all .3s;
+  }
+  .tl-content.active-phase {
+    border-color: currentColor;
+    box-shadow: 0 0 20px rgba(79,195,247,.1);
+  }
+  .tl-content h4 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .tl-content p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .tl-content .tl-badge {
+    display: inline-block; padding: 3px 8px;
+    border-radius: 20px; font-size: 10px; font-weight: 600;
+    letter-spacing: .4px; text-transform: uppercase;
+    margin-top: 8px; background: rgba(255,255,255,.07);
+  }
+
+  /* SOS */
+  .sos-card {
+    background: linear-gradient(135deg, rgba(239,83,80,.12), rgba(183,28,28,.08));
+    border: 1px solid rgba(239,83,80,.3);
+    border-radius: var(--r); padding: 18px;
+    margin-bottom: 20px; cursor: pointer;
+    transition: all .2s; text-align: center;
+  }
+  .sos-card:active { transform: scale(.98); }
+  .sos-card h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #ef5350; margin-bottom: 4px; }
+  .sos-card p { font-size: 12px; color: var(--muted); }
+
+  /* ── PROTOCOLS SCREEN ── */
+  .protocols-grid { display: flex; flex-direction: column; gap: 12px; }
+  .proto-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 18px;
+    cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .proto-card:active { transform: scale(.98); }
+  .proto-card.selected { border-color: var(--accent); background: rgba(79,195,247,.06); }
+  .proto-icon {
+    width: 52px; height: 52px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+  }
+  .proto-info { flex: 1; }
+  .proto-info h3 { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .proto-info p { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .proto-tag {
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: .3px; text-transform: uppercase;
+  }
+  .tag-beginner { background: rgba(102,187,106,.15); color: #66bb6a; }
+  .tag-intermediate { background: rgba(249,168,37,.15); color: #f9a825; }
+  .tag-advanced { background: rgba(239,83,80,.15); color: #ef5350; }
+
+  /* ── HYDRATION SCREEN ── */
+  .hydro-hero {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 24px;
+    text-align: center; margin-bottom: 20px;
+  }
+  .water-glass {
+    width: 70px; height: 90px; margin: 0 auto 16px;
+    border: 3px solid rgba(79,195,247,.4);
+    border-radius: 6px 6px 12px 12px;
+    position: relative; overflow: hidden;
+    background: rgba(79,195,247,.04);
+  }
+  .water-fill {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, rgba(79,195,247,.5), rgba(2,136,209,.7));
+    transition: height 1s cubic-bezier(.4,0,.2,1);
+    border-radius: 0 0 9px 9px;
+  }
+  .water-pct { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+  .water-label { font-size: 13px; color: var(--muted); }
+  .water-btns { display: flex; gap: 10px; margin-top: 16px; justify-content: center; }
+  .w-btn {
+    padding: 10px 20px; border-radius: 12px;
+    background: rgba(79,195,247,.12); border: 1px solid rgba(79,195,247,.2);
+    color: var(--accent); font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: all .2s;
+  }
+  .w-btn:active { transform: scale(.95); background: rgba(79,195,247,.22); }
+
+  .drink-list { display: flex; flex-direction: column; gap: 8px; }
+  .drink-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: all .2s;
+  }
+  .drink-item:active { transform: scale(.98); }
+  .drink-item .di { font-size: 24px; }
+  .drink-info { flex: 1; }
+  .drink-info h4 { font-size: 14px; font-weight: 500; }
+  .drink-info p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .drink-add { color: var(--accent); font-size: 22px; font-weight: 300; }
+
+  /* ── DIARY SCREEN ── */
+  .diary-entry {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px; margin-bottom: 16px;
+  }
+  .diary-entry h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .emoji-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .emoji-opt {
+    flex: 1; min-width: 52px;
+    padding: 10px 8px; border-radius: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    text-align: center; font-size: 22px; cursor: pointer;
+    transition: all .2s;
+  }
+  .emoji-opt.selected { border-color: var(--accent); background: rgba(79,195,247,.1); transform: scale(1.05); }
+  .emoji-opt span { display: block; font-size: 9px; color: var(--muted); margin-top: 4px; letter-spacing: .3px; }
+  .save-entry-btn {
+    width: 100%; padding: 16px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(79,195,247,.15), rgba(2,136,209,.1));
+    border: 1px solid rgba(79,195,247,.3); color: var(--accent);
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all .2s; margin-top: 4px;
+  }
+  .save-entry-btn:active { transform: scale(.97); }
+
+  .past-entries { margin-top: 20px; }
+  .entry-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px; margin-bottom: 8px;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .entry-emojis { font-size: 18px; display: flex; gap: 4px; }
+  .entry-meta { flex: 1; }
+  .entry-meta .et { font-size: 11px; color: var(--muted); }
+  .entry-meta .ed { font-size: 13px; color: var(--text); margin-top: 2px; }
+
+  /* ── SOS MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.8); backdrop-filter: blur(8px);
+    display: none; align-items: flex-end; justify-content: center;
+    animation: fadeIn .3s ease;
+  }
+  .modal-overlay.open { display: flex; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .modal-sheet {
+    background: var(--surface); border-radius: 24px 24px 0 0;
+    padding: 28px 24px 40px; width: 100%; max-width: 480px;
+    animation: slideUp .3s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal-handle {
+    width: 36px; height: 4px; border-radius: 4px;
+    background: var(--border); margin: 0 auto 24px;
+  }
+  .modal-sheet h2 { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  .modal-sheet p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .breath-circle {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(79,195,247,.2), rgba(2,136,209,.1));
+    border: 2px solid rgba(79,195,247,.4);
+    margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    animation: breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100%{transform:scale(.9);opacity:.7} 50%{transform:scale(1.1);opacity:1} }
+  .fact-box {
+    background: var(--surface2); border-radius: 14px; padding: 16px;
+    margin-bottom: 20px; font-size: 13px; line-height: 1.6;
+    border-left: 3px solid var(--accent);
+  }
+  .modal-btns { display: flex; gap: 10px; }
+  .btn-continue { flex: 1; padding: 15px; border-radius: 14px; background: linear-gradient(135deg,#4fc3f7,#0288d1); color:#fff; font-family:'Syne',sans-serif; font-size:14px; font-weight:700; border:none; cursor:pointer; }
+  .btn-break { flex: 1; padding: 15px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family:'Syne',sans-serif; font-size:14px; font-weight:700; cursor:pointer; }
+
+  /* ── MISC ── */
+  .page-title {
+    font-family: 'Syne', sans-serif; font-size: 26px;
+    font-weight: 800; letter-spacing: -.5px;
+    margin-bottom: 4px;
+  }
+  .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 12px 20px; border-radius: 100px;
+    font-size: 13px; font-weight: 500; z-index: 300;
+    white-space: nowrap;
+    animation: toastIn .3s ease;
+    pointer-events: none;
+  }
+  @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+  /* Colors per phase */
+  .c0 { color: var(--phase0); } .b0 { border-color: var(--phase0) !important; }
+  .c1 { color: var(--phase1); } .b1 { border-color: var(--phase1) !important; }
+  .c2 { color: var(--phase2); } .b2 { border-color: var(--phase2) !important; }
+  .c3 { color: var(--phase3); } .b3 { border-color: var(--phase3) !important; }
+  .c4 { color: var(--phase4); } .b4 { border-color: var(--phase4) !important; }
+
+  .bg0 { background: rgba(124,131,253,.12); }
+  .bg1 { background: rgba(249,168,37,.12); }
+  .bg2 { background: rgba(255,112,67,.12); }
+  .bg3 { background: rgba(102,187,106,.12); }
+  .bg4 { background: rgba(38,198,218,.12); }
+
+  /* ── HISTORY SCREEN ── */
+  .history-summary {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .hs-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 14px 10px;
+    text-align: center;
+  }
+  .hs-card .hv {
+    font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;
+    color: var(--accent);
+  }
+  .hs-card .hl { font-size: 10px; color: var(--muted); letter-spacing: .4px; text-transform: uppercase; margin-top: 3px; }
+
+  .hist-empty {
+    text-align: center; padding: 48px 20px;
+    color: var(--muted); font-size: 14px; line-height: 1.8;
+  }
+  .hist-empty .he-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+
+  .hist-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .hist-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; overflow: hidden;
+    transition: all .2s; animation: fadeSlide .3s ease;
+  }
+  .hist-card-top {
+    padding: 16px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+  }
+  .hist-card-top:active { opacity: .8; }
+  .hist-phase-dot {
+    width: 44px; height: 44px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .hist-main { flex: 1; min-width: 0; }
+  .hist-main h4 {
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hist-main .hm-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .hist-badge {
+    padding: 5px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    flex-shrink: 0;
+  }
+  .hb-done { background: rgba(102,187,106,.15); color: #66bb6a; }
+  .hb-partial { background: rgba(249,168,37,.15); color: #f9a825; }
+
+  .hist-card-detail {
+    padding: 0 16px 16px;
+    display: none; border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .hist-card-detail.open { display: block; }
+
+  .hd-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .hd-item { text-align: center; }
+  .hd-item .dv { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
+  .hd-item .dl { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .4px; }
+
+  .hd-progress {
+    height: 6px; background: var(--surface2); border-radius: 10px;
+    overflow: hidden; margin-bottom: 14px;
+  }
+  .hd-progress-fill {
+    height: 100%; border-radius: 10px;
+    transition: width .6s ease;
+  }
+
+  .hd-phase-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; margin-bottom: 14px;
+  }
+
+  .hist-note {
+    background: var(--surface2); border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; color: var(--muted);
+    margin-bottom: 14px; font-style: italic; line-height: 1.5;
+    border-left: 3px solid var(--border);
+  }
+  .hist-note.has-note { border-left-color: var(--accent); color: var(--text); }
+
+  .note-input {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    resize: none; outline: none; margin-bottom: 12px;
+    transition: border-color .2s;
+    display: none;
+  }
+  .note-input:focus { border-color: var(--accent); }
+  .note-input.open { display: block; }
+
+  .hd-actions { display: flex; gap: 8px; }
+  .hd-btn {
+    flex: 1; padding: 11px 8px; border-radius: 12px;
+    font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+    cursor: pointer; border: 1px solid; transition: all .2s;
+    text-align: center;
+  }
+  .hd-btn:active { transform: scale(.96); }
+  .hd-btn-note { background: rgba(79,195,247,.08); border-color: rgba(79,195,247,.25); color: var(--accent); }
+  .hd-btn-del { background: rgba(239,83,80,.08); border-color: rgba(239,83,80,.25); color: #ef5350; }
+  .hd-btn-save { background: rgba(102,187,106,.1); border-color: rgba(102,187,106,.3); color: #66bb6a; display:none; }
+
+  .clear-all-btn {
+    width: 100%; padding: 14px; border-radius: 14px; margin-top: 16px;
+    background: transparent; border: 1px solid rgba(239,83,80,.25);
+    color: #ef5350; font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s;
+  }
+  .clear-all-btn:active { background: rgba(239,83,80,.08); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="pulse-ring"></div>
+  <div class="logo-big">Fast<span>Flow</span></div>
+  <p>Mapa Biológico em Tempo Real</p>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="logo">Fast<span>Flow</span></div>
+    <div class="header-right">
+      <div class="icon-btn" id="notifBtn" title="Notificações">🔔</div>
+    </div>
+  </header>
+
+  <div class="scroll-area">
+    <!-- ─── TIMER SCREEN ─── -->
+    <div class="screen active" id="screen-timer">
+
+      <!-- Phase Banner -->
+      <div class="phase-banner" id="phaseBanner">
+        <div class="phase-icon" id="phaseIcon">🌅</div>
+        <div class="phase-info">
+          <h3 id="phaseName">Inicie seu jejum</h3>
+          <p id="phaseDesc">Escolha um protocolo e comece sua jornada biológica.</p>
+        </div>
+      </div>
+
+      <!-- Ring Timer -->
+      <div class="ring-wrap">
+        <div class="ring-container">
+          <svg class="ring-svg" viewBox="0 0 220 220">
+            <circle class="ring-track" cx="110" cy="110" r="100"/>
+            <circle class="ring-fill" id="ringFill" cx="110" cy="110" r="100"/>
+          </svg>
+          <div class="ring-center">
+            <div class="timer-display" id="timerDisplay">00:00:00</div>
+            <div class="timer-label" id="timerLabel">AGUARDANDO</div>
+            <div class="timer-pct" id="timerPct"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="sv" id="statProtocol">—</div>
+          <div class="sl">Protocolo</div>
+        </div>
+        <div class="stat-card">
+          <div class="sv" id="statTarget">—</div>
+          <div class="sl">Meta (h)</div>
+        </div>
+        <div class="stat-card">
+          <div class="sv" id="statRemaining">—</div>
+          <div class="sl">Restante</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-row" id="ctaRow">
+        <button class="btn-primary btn-start" id="startBtn" onclick="startFast()">▶ Iniciar Jejum</button>
+        <button class="btn-ghost" onclick="navigateTo('protocols')">📋</button>
+      </div>
+
+      <!-- SOS -->
+      <div class="sos-card" id="sosCard" onclick="openSOS()" style="display:none">
+        <h3>🆘 SOS Fome</h3>
+        <p>Toque aqui para ajuda imediata sem julgamentos</p>
+      </div>
+
+      <!-- Timeline -->
+      <p class="section-title">Linha do Tempo Biológica</p>
+      <div class="timeline" id="timeline"></div>
+
+    </div>
+
+    <!-- ─── PROTOCOLS ─── -->
+    <div class="screen" id="screen-protocols">
+      <h1 class="page-title">Protocolos</h1>
+      <p class="page-sub">Escolha o protocolo ideal para você</p>
+      <div class="protocols-grid" id="protoGrid"></div>
+    </div>
+
+    <!-- ─── HYDRATION ─── -->
+    <div class="screen" id="screen-hydration">
+      <h1 class="page-title">Hidratação</h1>
+      <p class="page-sub">Mantenha-se hidratado durante o jejum</p>
+
+      <div class="hydro-hero">
+        <div class="water-glass">
+          <div class="water-fill" id="waterFill" style="height:0%"></div>
+        </div>
+        <div class="water-pct" id="waterPct">0%</div>
+        <div class="water-label" id="waterLabel">0 / 2500 ml hoje</div>
+        <div class="water-btns">
+          <button class="w-btn" onclick="addWater(200)">+200ml</button>
+          <button class="w-btn" onclick="addWater(300)">+300ml</button>
+          <button class="w-btn" onclick="addWater(500)">+500ml</button>
+        </div>
+      </div>
+
+      <p class="section-title">Bebidas Permitidas</p>
+      <div class="drink-list">
+        <div class="drink-item" onclick="addWater(250)"><div class="di">💧</div><div class="drink-info"><h4>Água</h4><p>Hidratação essencial — beba sempre</p></div><div class="drink-add">+</div></div>
+        <div class="drink-item" onclick="addWater(200)"><div class="di">☕</div><div class="drink-info"><h4>Café Preto</h4><p>Sem açúcar ou leite — não quebra o jejum</p></div><div class="drink-add">+</div></div>
+        <div class="drink-item" onclick="addWater(250)"><div class="di">🍵</div><div class="drink-info"><h4>Chá sem açúcar</h4><p>Verde, preto, ervas — zero calorias</p></div><div class="drink-add">+</div></div>
+        <div class="drink-item" onclick="addWater(400)"><div class="di">🧂</div><div class="drink-info"><h4>Água com Eletrólitos</h4><p>Recomendado em jejuns acima de 16h</p></div><div class="drink-add">+</div></div>
+        <div class="drink-item" onclick="addWater(300)"><div class="di">🫧</div><div class="drink-info"><h4>Água com Gás</h4><p>Ajuda a reduzir a sensação de fome</p></div><div class="drink-add">+</div></div>
+      </div>
+    </div>
+
+    <!-- ─── DIARY ─── -->
+    <div class="screen" id="screen-diary">
+      <h1 class="page-title">Diário</h1>
+      <p class="page-sub">Registre como você está se sentindo</p>
+
+      <div class="diary-entry">
+        <h3>⚡ Nível de Energia</h3>
+        <div class="emoji-row" id="energyRow">
+          <div class="emoji-opt" onclick="selectMood('energy',1,this)">😴<span>Baixo</span></div>
+          <div class="emoji-opt" onclick="selectMood('energy',2,this)">😐<span>Médio</span></div>
+          <div class="emoji-opt" onclick="selectMood('energy',3,this)">😊<span>Bom</span></div>
+          <div class="emoji-opt" onclick="selectMood('energy',4,this)">⚡<span>Alto</span></div>
+        </div>
+      </div>
+
+      <div class="diary-entry">
+        <h3>🍽️ Nível de Fome</h3>
+        <div class="emoji-row" id="hungerRow">
+          <div class="emoji-opt" onclick="selectMood('hunger',1,this)">😌<span>Zero</span></div>
+          <div class="emoji-opt" onclick="selectMood('hunger',2,this)">🙂<span>Leve</span></div>
+          <div class="emoji-opt" onclick="selectMood('hunger',3,this)">😕<span>Moderada</span></div>
+          <div class="emoji-opt" onclick="selectMood('hunger',4,this)">😫<span>Intensa</span></div>
+        </div>
+      </div>
+
+      <div class="diary-entry">
+        <h3>🧠 Foco Mental</h3>
+        <div class="emoji-row" id="focusRow">
+          <div class="emoji-opt" onclick="selectMood('focus',1,this)">🌫️<span>Névoa</span></div>
+          <div class="emoji-opt" onclick="selectMood('focus',2,this)">😐<span>Normal</span></div>
+          <div class="emoji-opt" onclick="selectMood('focus',3,this)">🎯<span>Focado</span></div>
+          <div class="emoji-opt" onclick="selectMood('focus',4,this)">🚀<span>Máximo</span></div>
+        </div>
+      </div>
+
+      <button class="save-entry-btn" onclick="saveDiaryEntry()">💾 Salvar Registro</button>
+
+      <div class="past-entries">
+        <p class="section-title" style="margin-top:24px">Registros Anteriores</p>
+        <div id="entryList"></div>
+      </div>
+    </div>
+    <!-- ─── HISTORY ─── -->
+    <div class="screen" id="screen-history">
+      <h1 class="page-title">Histórico</h1>
+      <p class="page-sub">Todos os seus jejuns registrados</p>
+
+      <!-- Summary cards -->
+      <div class="history-summary">
+        <div class="hs-card">
+          <div class="hv" id="hsTotalFasts">0</div>
+          <div class="hl">Jejuns</div>
+        </div>
+        <div class="hs-card">
+          <div class="hv" id="hsTotalHours">0h</div>
+          <div class="hl">Total</div>
+        </div>
+        <div class="hs-card">
+          <div class="hv" id="hsAvgHours">—</div>
+          <div class="hl">Média</div>
+        </div>
+      </div>
+
+      <p class="section-title">Registros</p>
+      <div id="histList"></div>
+    </div>
+
+  </div><!-- /scroll-area -->
+
+  <!-- BOTTOM NAV -->
+  <nav>
+    <div class="nav-item active" id="nav-timer" onclick="navigateTo('timer')">
+      <div class="ni">⏱️</div><span>Timer</span>
+    </div>
+    <div class="nav-item" id="nav-protocols" onclick="navigateTo('protocols')">
+      <div class="ni">📋</div><span>Protocolos</span>
+    </div>
+    <div class="nav-item" id="nav-hydration" onclick="navigateTo('hydration')">
+      <div class="ni">💧</div><span>Hidrat.</span>
+    </div>
+    <div class="nav-item" id="nav-diary" onclick="navigateTo('diary')">
+      <div class="ni">📓</div><span>Diário</span>
+    </div>
+    <div class="nav-item" id="nav-history" onclick="navigateTo('history')">
+      <div class="ni">📊</div><span>Histórico</span>
+    </div>
+  </nav>
+</div><!-- /app -->
+
+<!-- SOS MODAL -->
+<div class="modal-overlay" id="sosModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h2>🆘 Você consegue!</h2>
+    <p>A fome é uma onda — ela passa. Respire fundo e leia um fato sobre o que está acontecendo no seu corpo agora.</p>
+    <div class="breath-circle" id="breathCircle">INSPIRE</div>
+    <div class="fact-box" id="sosFact">
+      💡 <strong>Sabia que?</strong> A fome em jejum não é linear — ela vem em ondas e geralmente passa em 20 minutos. Seu corpo está queimando gordura neste exato momento.
+    </div>
+    <div class="modal-btns">
+      <button class="btn-continue" onclick="closeSOS()">💪 Continuar Jejum</button>
+      <button class="btn-break" onclick="breakFast()">🍽️ Quebrar Jejum</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════
+const PHASES = [
+  { id:0, start:0,  end:4,  icon:'🌅', name:'Anabolismo',       color:'var(--phase0)',
+    desc:'Digestão ativa, pico de insulina, absorção de nutrientes.',
+    badge:'0–4 horas', detail:'Seu corpo está processando a última refeição. A insulina sobe para transportar glicose e aminoácidos para células e músculos.' },
+  { id:1, start:4,  end:12, icon:'🔥', name:'Catabolismo',       color:'var(--phase1)',
+    desc:'Glicose caindo, fígado queimando glicogênio para energia.',
+    badge:'4–12 horas', detail:'As reservas de açúcar no sangue diminuem. O fígado começa a converter glicogênio armazenado em glicose para manter a energia.' },
+  { id:2, start:12, end:16, icon:'💪', name:'Queima de Gordura', color:'var(--phase2)',
+    desc:'Glicogênio quase zerado, início da lipólise e HGH aumentando.',
+    badge:'12–16 horas', detail:'Com o glicogênio hepático esgotado, seu corpo ativa a lipólise — queima de gordura. O HGH (hormônio do crescimento) aumenta até 300%.' },
+  { id:3, start:16, end:24, icon:'🧬', name:'Autofagia Inicial', color:'var(--phase3)',
+    desc:'Limpeza celular ativada, inflamação caindo drasticamente.',
+    badge:'16–24 horas', detail:'A autofagia — o processo de reciclagem celular premiado com o Nobel 2016 — se intensifica. Células danificadas são reparadas ou eliminadas.' },
+  { id:4, start:24, end:48, icon:'⚡', name:'Cetose Profunda',  color:'var(--phase4)',
+    desc:'Corpo movido 100% a cetonas, regeneração imunológica acelerada.',
+    badge:'24–48 horas', detail:'Você está em cetose total. O cérebro funciona com cetonas (combustível limpo), a regeneração imune se acelera e a autofagia atinge o pico.' },
+];
+
+const PROTOCOLS = [
+  { id:'12:12', name:'12:12', hours:12, icon:'🌱', tag:'beginner',     tagLabel:'Iniciante',     desc:'12h de jejum, 12h de alimentação. Ideal para começar.' },
+  { id:'14:10', name:'14:10', hours:14, icon:'🌿', tag:'beginner',     tagLabel:'Iniciante',     desc:'14h de jejum. Ótimo para perda de peso gradual.' },
+  { id:'16:8',  name:'16:8',  hours:16, icon:'⚡', tag:'beginner',     tagLabel:'Popular',       desc:'O protocolo mais estudado e praticado do mundo.' },
+  { id:'18:6',  name:'18:6',  hours:18, icon:'🔥', tag:'intermediate', tagLabel:'Intermediário', desc:'Fase de autofagia mais intensa e queima de gordura avançada.' },
+  { id:'20:4',  name:'20:4',  hours:20, icon:'💪', tag:'intermediate', tagLabel:'Intermediário', desc:'Cetose garantida com janela de 4h para alimentação.' },
+  { id:'OMAD',  name:'OMAD',  hours:23, icon:'🏆', tag:'advanced',     tagLabel:'Avançado',      desc:'Uma Refeição por Dia. Autofagia máxima diária.' },
+  { id:'24h',   name:'24h',   hours:24, icon:'🧬', tag:'advanced',     tagLabel:'Avançado',      desc:'Jejum de 24h — regeneração celular profunda.' },
+  { id:'48h',   name:'48h',   hours:48, icon:'🌌', tag:'advanced',     tagLabel:'Expert',        desc:'Cetose e autofagia no pico máximo. Supervisão recomendada.' },
+];
+
+const SOS_FACTS = [
+  '💡 A fome em jejum não é linear — ela vem em ondas e geralmente passa em 20 minutos. Seu corpo está queimando gordura agora.',
+  '🧬 Durante o jejum, seu corpo ativa a autofagia: uma "faxina celular" que remove proteínas danificadas e vírus.',
+  '⚡ O hormônio do crescimento (HGH) pode aumentar até 300% durante o jejum, preservando sua massa muscular.',
+  '🧠 O cérebro funciona melhor com cetonas do que com glicose — muitos relatam clareza mental excepcional em jejum.',
+  '🔥 Cada hora de jejum que você persiste ativa mais genes ligados à longevidade e reparo celular.',
+];
+
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+let state = JSON.parse(localStorage.getItem('ff_state') || 'null') || {
+  running: false,
+  startTime: null,
+  protocol: '16:8',
+  targetHours: 16,
+  waterMl: 0,
+  waterDate: '',
+  moods: { energy:0, hunger:0, focus:0 },
+  diary: [],
+  history: [],
+};
+
+let timerInterval = null;
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    document.getElementById('splash').style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      init();
+    }, 600);
+  }, 1400);
+});
+
+function init() {
+  buildTimeline();
+  buildProtocols();
+  syncWaterDate();
+  renderDiary();
+
+  if (state.running && state.startTime) {
+    startInterval();
+    document.getElementById('startBtn').textContent = '⏹ Encerrar';
+    document.getElementById('startBtn').className = 'btn-primary btn-stop';
+    document.getElementById('startBtn').setAttribute('onclick', 'stopFast()');
+    document.getElementById('sosCard').style.display = '';
+  }
+  updateTimer();
+}
+
+function saveState() {
+  localStorage.setItem('ff_state', JSON.stringify(state));
+}
+
+// ════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════
+function navigateTo(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  document.getElementById('nav-' + screen).classList.add('active');
+  document.querySelector('.scroll-area').scrollTo(0,0);
+  if (screen === 'history') renderHistory();
+}
+
+// ════════════════════════════════════════
+//  TIMER
+// ════════════════════════════════════════
+function startFast() {
+  state.running = true;
+  state.startTime = Date.now();
+  saveState();
+  startInterval();
+  document.getElementById('startBtn').textContent = '⏹ Encerrar';
+  document.getElementById('startBtn').className = 'btn-primary btn-stop';
+  document.getElementById('startBtn').setAttribute('onclick', 'stopFast()');
+  document.getElementById('sosCard').style.display = '';
+  showToast('🚀 Jejum iniciado! Boa jornada.');
+}
+
+function stopFast() {
+  if (!confirm('Deseja encerrar o jejum agora?')) return;
+  breakFast();
+}
+
+function breakFast() {
+  if (!state.history) state.history = [];
+
+  // Save record if fasting was running
+  if (state.running && state.startTime) {
+    const elapsedSec = (Date.now() - state.startTime) / 1000;
+    const elapsedH = elapsedSec / 3600;
+    const phase = getCurrentPhase(elapsedH);
+    const completed = elapsedH >= state.targetHours;
+    const record = {
+      id: Date.now(),
+      protocol: state.protocol,
+      targetHours: state.targetHours,
+      startTime: state.startTime,
+      endTime: Date.now(),
+      elapsedSec: Math.floor(elapsedSec),
+      completed,
+      phaseName: phase.name,
+      phaseIcon: phase.icon,
+      phaseId: phase.id,
+      note: '',
+    };
+    state.history.unshift(record);
+    if (state.history.length > 100) state.history.pop();
+  }
+
+  clearInterval(timerInterval);
+  timerInterval = null;
+  state.running = false;
+  state.startTime = null;
+  saveState();
+  closeSOS();
+  document.getElementById('startBtn').textContent = '▶ Iniciar Jejum';
+  document.getElementById('startBtn').className = 'btn-primary btn-start';
+  document.getElementById('startBtn').setAttribute('onclick', 'startFast()');
+  document.getElementById('sosCard').style.display = 'none';
+  document.getElementById('timerDisplay').textContent = '00:00:00';
+  document.getElementById('timerLabel').textContent = 'AGUARDANDO';
+  document.getElementById('timerPct').textContent = '';
+  document.getElementById('ringFill').style.strokeDashoffset = 628;
+  document.getElementById('statRemaining').textContent = '—';
+  resetPhaseBanner();
+  updateTimeline(0);
+  showToast('✅ Jejum encerrado. Parabéns!');
+}
+
+// ════════════════════════════════════════
+//  HISTORY
+// ════════════════════════════════════════
+function renderHistory() {
+  if (!state.history) state.history = [];
+  const list = state.history;
+
+  // Summary stats
+  const total = list.length;
+  const totalSec = list.reduce((a, r) => a + r.elapsedSec, 0);
+  const totalH = totalSec / 3600;
+  const avgH = total ? totalH / total : 0;
+  document.getElementById('hsTotalFasts').textContent = total;
+  document.getElementById('hsTotalHours').textContent = totalH >= 1 ? Math.round(totalH) + 'h' : '0h';
+  document.getElementById('hsAvgHours').textContent = total ? avgH.toFixed(1) + 'h' : '—';
+
+  if (!total) {
+    document.getElementById('histList').innerHTML = `
+      <div class="hist-empty">
+        <span class="he-icon">📭</span>
+        Nenhum jejum registrado ainda.<br>Complete seu primeiro jejum para<br>ver o histórico aqui.
+      </div>`;
+    return;
+  }
+
+  const phaseColors = ['#7c83fd','#f9a825','#ff7043','#66bb6a','#26c6da'];
+  const phaseBgs = ['rgba(124,131,253,.12)','rgba(249,168,37,.12)','rgba(255,112,67,.12)','rgba(102,187,106,.12)','rgba(38,198,218,.12)'];
+
+  const html = list.map((r, idx) => {
+    const h = Math.floor(r.elapsedSec / 3600);
+    const m = Math.floor((r.elapsedSec % 3600) / 60);
+    const pct = Math.min(Math.round((r.elapsedSec / (r.targetHours * 3600)) * 100), 100);
+    const color = phaseColors[r.phaseId] || phaseColors[0];
+    const bg = phaseBgs[r.phaseId] || phaseBgs[0];
+    const startDate = new Date(r.startTime).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+    const startTime = new Date(r.startTime).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+    const endTime = new Date(r.endTime).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+    const badgeClass = r.completed ? 'hb-done' : 'hb-partial';
+    const badgeText = r.completed ? '✅ Completo' : '⚡ Parcial';
+    const noteText = r.note || 'Nenhuma anotação.';
+    const noteClass = r.note ? 'hist-note has-note' : 'hist-note';
+
+    return `
+    <div class="hist-card" id="hcard-${r.id}">
+      <div class="hist-card-top" onclick="toggleHistCard(${r.id})">
+        <div class="hist-phase-dot" style="background:${bg}">${r.phaseIcon}</div>
+        <div class="hist-main">
+          <h4>${r.protocol} · ${h}h${m > 0 ? pad(m) + 'm' : ''}</h4>
+          <div class="hm-sub">${startDate} · ${startTime} → ${endTime}</div>
+        </div>
+        <span class="hist-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="hist-card-detail" id="hdetail-${r.id}">
+        <div class="hd-row">
+          <div class="hd-item"><div class="dv" style="color:${color}">${h}h${m > 0 ? pad(m)+'m' : ''}</div><div class="dl">Duração</div></div>
+          <div class="hd-item"><div class="dv">${pct}%</div><div class="dl">da Meta</div></div>
+          <div class="hd-item"><div class="dv">${r.targetHours}h</div><div class="dl">Protocolo</div></div>
+        </div>
+        <div class="hd-progress">
+          <div class="hd-progress-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="hd-phase-tag" style="background:${bg};color:${color}">
+          ${r.phaseIcon} Fase atingida: ${r.phaseName}
+        </div>
+        <div class="${noteClass}" id="hnote-${r.id}">${noteText}</div>
+        <textarea class="note-input" id="ninput-${r.id}" rows="3" placeholder="Adicione uma anotação...">${r.note || ''}</textarea>
+        <div class="hd-actions">
+          <button class="hd-btn hd-btn-note" id="hbtn-note-${r.id}" onclick="toggleNote(${r.id})">✏️ Anotar</button>
+          <button class="hd-btn hd-btn-save" id="hbtn-save-${r.id}" onclick="saveNote(${r.id})">💾 Salvar</button>
+          <button class="hd-btn hd-btn-del" onclick="deleteRecord(${r.id})">🗑️ Deletar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('histList').innerHTML = html +
+    (list.length > 1 ? `<button class="clear-all-btn" onclick="clearAllHistory()">🗑️ Apagar todo o histórico</button>` : '');
+}
+
+function toggleHistCard(id) {
+  const detail = document.getElementById('hdetail-' + id);
+  detail.classList.toggle('open');
+}
+
+function toggleNote(id) {
+  const input = document.getElementById('ninput-' + id);
+  const noteDiv = document.getElementById('hnote-' + id);
+  const btnNote = document.getElementById('hbtn-note-' + id);
+  const btnSave = document.getElementById('hbtn-save-' + id);
+  const isOpen = input.classList.contains('open');
+  if (isOpen) {
+    input.classList.remove('open');
+    btnNote.style.display = '';
+    btnSave.style.display = 'none';
+    noteDiv.style.display = '';
+  } else {
+    input.classList.add('open');
+    noteDiv.style.display = 'none';
+    btnNote.style.display = 'none';
+    btnSave.style.display = '';
+    input.focus();
+  }
+}
+
+function saveNote(id) {
+  const input = document.getElementById('ninput-' + id);
+  const note = input.value.trim();
+  const rec = state.history.find(r => r.id === id);
+  if (rec) { rec.note = note; saveState(); }
+  renderHistory();
+  showToast('💾 Anotação salva!');
+}
+
+function deleteRecord(id) {
+  if (!confirm('Deletar este registro de jejum?')) return;
+  state.history = state.history.filter(r => r.id !== id);
+  saveState();
+  renderHistory();
+  showToast('🗑️ Registro deletado.');
+}
+
+function clearAllHistory() {
+  if (!confirm('Apagar TODO o histórico de jejuns? Esta ação não pode ser desfeita.')) return;
+  state.history = [];
+  saveState();
+  renderHistory();
+  showToast('🗑️ Histórico apagado.');
+}
+
+function startInterval() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimer, 1000);
+}
+
+function updateTimer() {
+  if (!state.running || !state.startTime) return;
+  const elapsed = (Date.now() - state.startTime) / 1000;
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = Math.floor(elapsed % 60);
+  document.getElementById('timerDisplay').textContent =
+    `${pad(h)}:${pad(m)}:${pad(s)}`;
+
+  const targetSec = state.targetHours * 3600;
+  const pct = Math.min(elapsed / targetSec, 1);
+  const offset = 628 - pct * 628;
+  document.getElementById('ringFill').style.strokeDashoffset = offset;
+
+  const pctVal = Math.round(pct * 100);
+  document.getElementById('timerPct').textContent = pctVal + '% concluído';
+  document.getElementById('timerLabel').textContent = pct >= 1 ? 'META ATINGIDA ✅' : 'EM JEJUM';
+
+  const remainSec = Math.max(targetSec - elapsed, 0);
+  const rh = Math.floor(remainSec / 3600);
+  const rm = Math.floor((remainSec % 3600) / 60);
+  document.getElementById('statRemaining').textContent = remainSec > 0 ? `${rh}h${pad(rm)}` : '✅';
+
+  const currentPhase = getCurrentPhase(h + m/60);
+  updatePhaseBanner(currentPhase);
+  updateTimeline(h + m/60);
+  setRingColor(currentPhase);
+}
+
+function getCurrentPhase(hours) {
+  for (let i = PHASES.length - 1; i >= 0; i--) {
+    if (hours >= PHASES[i].start) return PHASES[i];
+  }
+  return PHASES[0];
+}
+
+function updatePhaseBanner(phase) {
+  const el = document.getElementById('phaseBanner');
+  el.className = `phase-banner bg${phase.id}`;
+  document.getElementById('phaseIcon').textContent = phase.icon;
+  document.getElementById('phaseName').textContent = phase.name;
+  document.getElementById('phaseDesc').textContent = phase.detail;
+}
+
+function resetPhaseBanner() {
+  const el = document.getElementById('phaseBanner');
+  el.className = 'phase-banner bg0';
+  document.getElementById('phaseIcon').textContent = '🌅';
+  document.getElementById('phaseName').textContent = 'Inicie seu jejum';
+  document.getElementById('phaseDesc').textContent = 'Escolha um protocolo e comece sua jornada biológica.';
+}
+
+function setRingColor(phase) {
+  const colors = ['#7c83fd','#f9a825','#ff7043','#66bb6a','#26c6da'];
+  document.getElementById('ringFill').style.stroke = colors[phase.id];
+}
+
+function updateTimeline(hours) {
+  document.querySelectorAll('.tl-dot').forEach((dot, i) => {
+    const phase = PHASES[i];
+    const reached = hours >= phase.start;
+    const active = hours >= phase.start && hours < phase.end;
+    const colors = ['#7c83fd','#f9a825','#ff7043','#66bb6a','#26c6da'];
+    dot.style.backgroundColor = reached ? colors[i] : 'transparent';
+    dot.style.borderColor = colors[i];
+    const content = document.querySelectorAll('.tl-content')[i];
+    if (active) {
+      content.classList.add('active-phase');
+      content.style.color = colors[i];
+    } else {
+      content.classList.remove('active-phase');
+      content.style.color = '';
+    }
+  });
+}
+
+function pad(n) { return String(n).padStart(2,'0'); }
+
+// ════════════════════════════════════════
+//  BUILD TIMELINE
+// ════════════════════════════════════════
+function buildTimeline() {
+  const colors = ['c0','c1','c2','c3','c4'];
+  const html = PHASES.map((p,i) => `
+    <div class="tl-item">
+      <div class="tl-line">
+        <div class="tl-dot ${colors[i]} b${p.id}" style="border-color:currentColor"></div>
+        <div class="tl-connector"></div>
+      </div>
+      <div class="tl-content">
+        <h4 class="${colors[i]}">${p.icon} ${p.name}</h4>
+        <p>${p.detail}</p>
+        <span class="tl-badge">${p.badge}</span>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('timeline').innerHTML = html;
+}
+
+// ════════════════════════════════════════
+//  PROTOCOLS
+// ════════════════════════════════════════
+function buildProtocols() {
+  const bgColors = { beginner:'rgba(102,187,106,.1)', intermediate:'rgba(249,168,37,.1)', advanced:'rgba(239,83,80,.1)' };
+  const html = PROTOCOLS.map(p => `
+    <div class="proto-card ${state.protocol === p.id ? 'selected' : ''}"
+         id="proto-${p.id}" onclick="selectProtocol('${p.id}',${p.hours})">
+      <div class="proto-icon" style="background:${bgColors[p.tag] || bgColors.beginner}">${p.icon}</div>
+      <div class="proto-info">
+        <h3>${p.name}</h3>
+        <p>${p.desc}</p>
+      </div>
+      <span class="proto-tag tag-${p.tag}">${p.tagLabel}</span>
+    </div>
+  `).join('');
+  document.getElementById('protoGrid').innerHTML = html;
+}
+
+function selectProtocol(id, hours) {
+  state.protocol = id;
+  state.targetHours = hours;
+  saveState();
+  document.querySelectorAll('.proto-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('proto-' + id).classList.add('selected');
+  document.getElementById('statProtocol').textContent = id;
+  document.getElementById('statTarget').textContent = hours;
+  showToast('✅ Protocolo ' + id + ' selecionado');
+  setTimeout(() => navigateTo('timer'), 800);
+}
+
+// ════════════════════════════════════════
+//  HYDRATION
+// ════════════════════════════════════════
+function syncWaterDate() {
+  const today = new Date().toDateString();
+  if (state.waterDate !== today) { state.waterMl = 0; state.waterDate = today; saveState(); }
+  renderWater();
+  document.getElementById('statProtocol').textContent = state.protocol;
+  document.getElementById('statTarget').textContent = state.targetHours;
+}
+
+function addWater(ml) {
+  state.waterMl = Math.min(state.waterMl + ml, 4000);
+  saveState(); renderWater();
+  showToast('💧 +' + ml + 'ml adicionados');
+}
+
+function renderWater() {
+  const goal = 2500;
+  const pct = Math.min(state.waterMl / goal * 100, 100);
+  document.getElementById('waterFill').style.height = pct + '%';
+  document.getElementById('waterPct').textContent = Math.round(pct) + '%';
+  document.getElementById('waterLabel').textContent = state.waterMl + ' / ' + goal + ' ml hoje';
+}
+
+// ════════════════════════════════════════
+//  DIARY
+// ════════════════════════════════════════
+function selectMood(type, val, el) {
+  state.moods[type] = val;
+  const row = el.closest('.emoji-row');
+  row.querySelectorAll('.emoji-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function saveDiaryEntry() {
+  const { energy, hunger, focus } = state.moods;
+  if (!energy || !hunger || !focus) { showToast('⚠️ Preencha todos os campos'); return; }
+  const emojis = { energy:['😴','😐','😊','⚡'], hunger:['😌','🙂','😕','😫'], focus:['🌫️','😐','🎯','🚀'] };
+  const entry = {
+    time: new Date().toLocaleString('pt-BR'),
+    energy, hunger, focus,
+    emojis: emojis.energy[energy-1] + emojis.hunger[hunger-1] + emojis.focus[focus-1],
+    label: `Energia ${energy}/4 · Fome ${hunger}/4 · Foco ${focus}/4`,
+  };
+  state.diary.unshift(entry);
+  if (state.diary.length > 30) state.diary.pop();
+  state.moods = { energy:0, hunger:0, focus:0 };
+  saveState();
+  document.querySelectorAll('.emoji-opt').forEach(o => o.classList.remove('selected'));
+  renderDiary();
+  showToast('📓 Registro salvo!');
+}
+
+function renderDiary() {
+  const html = state.diary.slice(0,10).map(e => `
+    <div class="entry-card">
+      <div class="entry-emojis">${e.emojis}</div>
+      <div class="entry-meta">
+        <div class="et">${e.time}</div>
+        <div class="ed">${e.label}</div>
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--muted);font-size:13px">Nenhum registro ainda.</p>';
+  document.getElementById('entryList').innerHTML = html;
+}
+
+// ════════════════════════════════════════
+//  SOS
+// ════════════════════════════════════════
+let breathPhase = 0;
+let breathInterval = null;
+
+function openSOS() {
+  document.getElementById('sosModal').classList.add('open');
+  const ri = Math.floor(Math.random() * SOS_FACTS.length);
+  document.getElementById('sosFact').textContent = SOS_FACTS[ri];
+  startBreath();
+}
+
+function closeSOS() {
+  document.getElementById('sosModal').classList.remove('open');
+  if (breathInterval) { clearInterval(breathInterval); breathInterval = null; }
+}
+
+function startBreath() {
+  const phases = [
+    { text: 'INSPIRE', dur: 4000 },
+    { text: 'SEGURE', dur: 4000 },
+    { text: 'EXPIRE', dur: 4000 },
+    { text: 'PAUSE', dur: 2000 },
+  ];
+  let idx = 0;
+  const el = document.getElementById('breathCircle');
+  function next() { el.textContent = phases[idx % phases.length].text; idx++; }
+  next();
+  breathInterval = setInterval(next, 3000);
+}
+
+// ════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ════════════════════════════════════════
+//  NOTIF BUTTON
+// ════════════════════════════════════════
+document.getElementById('notifBtn').addEventListener('click', () => {
+  if (!state.running) { showToast('⚠️ Inicie um jejum primeiro'); return; }
+  const elapsed = (Date.now() - state.startTime) / 3600000;
+  const phase = getCurrentPhase(elapsed);
+  showToast(`${phase.icon} Você está em: ${phase.name}`);
+});
+</script>
+</body>
+</html>
